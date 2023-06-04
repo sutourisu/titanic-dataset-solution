@@ -67,5 +67,5 @@ print(test_rmse)
 
 filename = "titanic_predictions.csv"
 
-test_predictions.to_csv(filename, index = False)    ### Сохранение предиктов в файл 'titanic_predictions.csv'
+test_predictions.to_csv(f"titanic_ds/datasets/{filename}", index = False)    ### Сохранение предиктов в файл 'titanic_predictions.csv'
 
