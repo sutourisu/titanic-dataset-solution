@@ -96,13 +96,24 @@ test_data_labels = gender_submission["Survived"]
 
 ### Обучение модели и оценка эффективности
 
-Для решения данной задачи хорошо подойдет алгоритм случайного леса. Создадим модель и обучим ее на наших данных:
+Для решения данной задачи подойдет алгоритм классификации случайного леса. Создадим модель, настроим ее под данные с помощью решетчатого поиска и обучим ее:
 
 ```python
-from sklearn_ensemble import RandomForestRegressor
+from sklearn_ensemble import RandomForestClassifier
 
-model = RandomForestRegressor()
-model.fit(train_data_prepared, train_data_labels)   ### Обучение модели
+model = RandomForestClassifier()
+
+param_grid = [
+    {'n_estimators': [3, 10, 30], 'max_features': [2, 4, 6, 8]},
+    {'bootstrap': [False], 'n_estimators': [3, 10], 'max_features': [2, 3, 4]},
+]
+
+grind_search = RandomizedSearchCV(model, param_grid, cv = 5, scoring = "neg_mean_squared_error")
+grind_search.fit(train_data_prepared, train_data_labels)
+
+model = grind_search.best_estimator_
+
+model.fit(train_data_prepared, train_data_labels)
 ```
 
 Теперь заставим модель предсказать значения на обучающем датасете и рассчитаем эффективность модели.
@@ -115,10 +126,10 @@ predictions = model.predict(train_data_prepared)
 model_mse = mean_squared_error(train_data_labels, predictions)
 model_rmse = np_sqrt(model_mse)
 
-print(model_rmse) ### 0.2736
+print(model_rmse) ### 0.32
 ```
 
-Корень из среднеквадратической ошибки приблизительно равен 0.27, что является неплохим результатом для такой просто модели.
+Корень из среднеквадратической ошибки приблизительно равен 0.32, что является неплохим результатом для такой просто модели.
 
 ### Запуск модели и составление прогнозов
 
@@ -130,7 +141,7 @@ test_predictions = pd.DataFrame(np.array(model.predict(test_data_prepared)).roun
 test_mse = mean_squared_error(test_data_labels, test_predictions)
 test_rmse = np.sqrt(model_mse)
 
-print(test_rmse)  ### 0.27...
+print(test_rmse)  ### 0.32...
 
 filename = "titanic_predictions.csv"
 
