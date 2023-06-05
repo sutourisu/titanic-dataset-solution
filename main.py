@@ -1,71 +1,157 @@
 import numpy as np
-import pandas as pd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestRegressor
+import pandas as pd
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import FeatureUnion
+from sklearn.compose import ColumnTransformer
 from sklearn.metrics import mean_squared_error
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.svm import SVR
 
-train_data = pd.read_csv("titanic_ds/datasets/train.csv")
-test_data = pd.read_csv("titanic_ds/datasets/test.csv")
-gender_submission = pd.read_csv("titanic_ds/datasets/gender_submission.csv")
+rooms_ix, bedrooms_ix, population_ix, household_ix = 3, 4, 5, 6
 
-print(train_data.describe())    ### Общая характеристика данных
+class CombinedAttributesAdder(BaseEstimator, TransformerMixin):
+    def __init__(self, add_bedrooms_per_room = True):
 
-train_data = train_data.dropna(subset = ["Age"])        ###  Дроп неизвестных возрастов
+        self.add_bedrooms_per_room = add_bedrooms_per_room
+    
+    def fit(self, X, Y = None):
+        return self
+    
+    def transform(self, X, Y = None):
+        rooms_per_household = X[:, rooms_ix] / X[:, household_ix]
+        population_per_household = X[:, population_ix] / X[:, household_ix]
 
-age_median = test_data["Age"].median()
-test_data["Age"].fillna(age_median, inplace = True)
-
-fare_median = test_data["Fare"].median()
-test_data["Fare"].fillna(fare_median, inplace = True)   ###  Заполнение неизвестных полей медианами в тестовом наборе данных
-
-'''Нужно факторизовать переменную пола, а также классифицировать возраст на более крупные классы'''
-
-train_data["Age_cat"] = np.ceil(train_data["Age"] / 15)  ### Классификация возрастов на 6 классов
-test_data["Age_cat"] = np.ceil(test_data["Age"] / 15)
-
-train_data_cat = train_data["Sex"]
-train_data_cat_encoded, train_data_cat_categories = train_data_cat.factorize()  ###  Факторизация категориальной переменной пола
-
-test_data_cat = test_data["Sex"]
-test_data_cat_encoded, test_data_cat_categories = test_data_cat.factorize()
-
-train_data["Sex"] = train_data_cat_encoded
-test_data["Sex"] = test_data_cat_encoded
-
-corr_matrix = train_data.corr(numeric_only = True)      ###  Корреляционная матрица значений
-
-print(corr_matrix)
-
-#  Наиболее перспективные для отбора атрибуты: "Pclass", "Sex", "Fare".
-
-model = RandomForestRegressor()
+        if self.add_bedrooms_per_room:
+            bedrooms_per_room = X[:, bedrooms_ix]  / X[:, rooms_ix]
+            return np.c_[X, rooms_per_household, population_per_household,
+                            bedrooms_per_room]
+        else:
+            return np.c_[X, rooms_per_household, population_per_household]
 
 
-train_data_prepared = train_data[["Pclass", "Sex", "Fare"]].copy()
-train_data_labels = train_data["Survived"].copy()               ### Подготовленные данные для обучения модели
+class DataFrameSelector(BaseEstimator, TransformerMixin):
+    def __init__(self, attribute_names):
+        self.attribute_names = attribute_names
+    
+    def fit(self, X, Y = None):
+        return self
+    
+    def transform(self, X):
+        return X[self.attribute_names].values
 
+def display_scores(scores):
+    print("Суммы оценок:", scores)
+    print("Среднее:", scores.mean())
+    print("Стандартное отклонение:", scores.std())
+    print()
 
-###  Тренировка модели на обучающем наборе данных и её оценка
-model.fit(train_data_prepared, train_data_labels)
+mpl.rc('axes', labelsize = 14)
+mpl.rc('xtick', labelsize = 12)
+mpl.rc('ytick', labelsize = 12)
 
-predictions = model.predict(train_data_prepared)
+housing = pd.read_csv("datasets/housing.csv")
 
+#  train_set, test_set = train_test_split(housing, test_size=0.2, random_state=42)
 
-model_mse = mean_squared_error(train_data_labels, predictions)
-model_rmse = np.sqrt(model_mse)
+housing["income_cat"] = np.ceil(housing["median_income"] / 1.5)
+housing["income_cat"].where(housing["income_cat"] < 5, 5.0, inplace=True)
+housing["income_cat"].hist(bins = 50)
 
-test_data_prepared = test_data[["Pclass", "Sex", "Fare"]].copy()
+split = StratifiedShuffleSplit(n_splits = 1, test_size = 0.2, random_state=42)
 
-test_predictions = pd.DataFrame(np.array(model.predict(test_data_prepared)).round().astype("int"))            ###  Предикты на тренировочном наборе данных
+for train_index, test_index in split.split(housing, housing["income_cat"]):
+    strat_train_set = housing.loc[train_index]
+    strat_test_set = housing.loc[test_index]
 
-test_data_labels = gender_submission["Survived"]
+for set_ in (strat_train_set, strat_test_set):
+    set_.drop("income_cat", axis = 1, inplace = True)
 
-test_mse = mean_squared_error(test_data_labels, test_predictions)   ### Ошибка модели на тестовом наборе данных
-test_rmse = np.sqrt(model_mse)
+housing = strat_train_set.copy()
 
-print(test_rmse)
+housing.plot(kind="scatter", x="longitude", y="latitude", alpha = 0.4,
+            s = housing["population"] / 100, label = "population",
+            figsize = (10, 7), c="median_house_value",
+            cmap = plt.get_cmap("jet"), colorbar = True)
 
-filename = "titanic_predictions.csv"
+housing.plot(kind="scatter", x = "median_income",
+            y = "median_house_value", alpha = 0.1)
 
-test_predictions.to_csv(filename, index = False)    ### Сохранение предиктов в файл 'titanic_predictions.csv'
+housing["rooms_per_household"] = housing["total_rooms"] / housing["households"]
+housing["bedrooms_per_room"] = housing["total_bedrooms"] / housing["total_rooms"]
+housing["population_per_household"] = housing["population"] / housing["households"]
 
+housing = strat_train_set.drop("median_house_value", axis = 1)
+housing_labels = strat_train_set["median_house_value"].copy()
+
+housing_num = housing.drop("ocean_proximity", axis = 1)
+
+imputer = SimpleImputer(strategy="median")
+imputer.fit(housing_num)
+
+X = imputer.transform(housing_num)
+
+housing_cat = housing["ocean_proximity"]
+housing_cat_encoded, housing_categories = housing_cat.factorize()
+
+encoder = OneHotEncoder()
+housing_cat_1hot = encoder.fit_transform(housing_cat_encoded.reshape(-1, 1))
+housing_cat_1hot = housing_cat_1hot.toarray()
+
+num_attribs = list(housing_num)
+cat_attribs = ["ocean_proximity"]
+
+num_pipeline = Pipeline([
+    ("imputer", SimpleImputer(strategy = "median")),
+    ("attribs_adder", CombinedAttributesAdder()),
+    ('std_scaler', StandardScaler()),
+])
+
+full_pipeline = ColumnTransformer([
+    ("num", num_pipeline, num_attribs),
+    ("cat", OneHotEncoder(), cat_attribs)
+])
+
+housing_prepared = full_pipeline.fit_transform(housing)
+
+param_grid = [
+    {"n_estimators": [3, 10, 30], "max_features": [2, 4, 6, 8]},
+    {"bootstrap": [False], "n_estimators": [3, 10], "max_features": [2, 3, 4]},
+]
+
+forest_reg = RandomForestRegressor()
+
+grid_search = GridSearchCV(forest_reg, param_grid, cv=5,
+                                scoring = "neg_mean_squared_error")
+
+grid_search.fit(housing_prepared, housing_labels)
+
+forest_reg = grid_search.best_estimator_
+forest_reg.fit(housing_prepared, housing_labels)
+
+X_test = strat_test_set.drop("median_house_value", axis = 1)
+Y_test = strat_test_set["median_house_value"].copy()
+
+X_test_prepared = full_pipeline.transform(X_test)
+
+final_predictions = forest_reg.predict(X_test_prepared)
+
+final_mse = mean_squared_error(Y_test, final_predictions)
+final_rmse = np.sqrt(final_mse)
+
+print(final_rmse)
+
+plt.show()
