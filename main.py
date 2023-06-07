@@ -5,10 +5,10 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import train_test_split
 
 train_data = pd.read_csv("titanic_ds/datasets/train.csv")
 test_data = pd.read_csv("titanic_ds/datasets/test.csv")
-gender_submission = pd.read_csv("titanic_ds/datasets/gender_submission.csv")
 
 print(train_data.describe())    ### Общая характеристика данных
 
@@ -40,8 +40,10 @@ print(corr_matrix)
 
 #  Наиболее перспективные для отбора атрибуты: "Pclass", "Sex", "Fare".
 
-train_data_prepared = train_data[["Pclass", "Sex", "Fare"]].copy()
-train_data_labels = train_data["Survived"].copy()               ### Подготовленные данные для обучения модели
+split_train, split_test = train_test_split(train_data, test_size = 0.2, random_state = 42)
+
+train_data_prepared = split_train[["Pclass", "Sex", "Fare"]].copy()
+train_data_labels = split_train["Survived"].copy()               ### Подготовленные данные для обучения модели
 
 model = RandomForestClassifier()
 
@@ -66,16 +68,21 @@ model_rmse = np.sqrt(model_mse)
 
 print(model_rmse)
 
-test_data_prepared = test_data[["Pclass", "Sex", "Fare"]].copy()
+test_data_prepared = split_test[["Pclass", "Sex", "Fare"]].copy()
 
-test_predictions = pd.DataFrame(np.array(model.predict(test_data_prepared)))            ###  Предикты на тренировочном наборе данных
+test_predictions = np.array(model.predict(test_data_prepared))          ###  Предикты на тренировочном наборе данных
 
-test_data_labels = gender_submission["Survived"]
+test_data_labels = split_test["Survived"]
 
 test_mse = mean_squared_error(test_data_labels, test_predictions)   ### Ошибка модели на тестовом наборе данных
 test_rmse = np.sqrt(test_mse)
 
 print(test_rmse)
 
-filename = "titanic_predictions.csv"
-test_predictions.to_csv(f"titanic_ds/datasets/{filename}", index = False)    ### Сохранение предиктов в файл 'titanic_predictions.csv'
+ids = test_data["PassengerId"].copy()
+final_data_prepared = test_data[["Pclass", "Sex", "Fare"]].copy()
+
+final_predictions = model.predict(final_data_prepared)        ### Финальные предикты
+
+file = pd.DataFrame({"PassengerId": ids, "Survived": final_predictions})
+file.to_csv("titanic_ds/datasets/final_submission.csv", index = False)
