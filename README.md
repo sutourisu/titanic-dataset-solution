@@ -83,15 +83,18 @@ corr_matrix = train_data.corr(numeric_only = True)
 | ...         | ...         | ...      | ...    | ...    | ...    | ...    | ...    | ...    | ...     |
 | Age_cat     | 0.054       | -0.067   | -0.370 | -0.104 | 0.954  | -0.287 | -0.180 | 0.101  | 1       |
 
-Замечаем, что лучше всего с атрибутом "Survived" коррелируют такие значения, как "Pclass", "Sex" и "Fare". Следовательно на них мы и будем опираться при обучении модели. Подготовим данные для модели.
+Замечаем, что лучше всего с атрибутом "Survived" коррелируют такие значения, как "Pclass", "Sex" и "Fare". Следовательно на них мы и будем опираться при обучении модели. Подготовим данные для модели. Разобьем train датасет на две выборки 80% и 20% для дальнейшего теста модели.
 
 ```python
-train_data_prepared = train_data[["Pclass", "Sex", "Fare"]].copy()
-train_data_labels = train_data["Survived"].copy()
+import sklearn.model_selection import train_test_split
 
-test_data_prepared = test_data[["Pclass, "Sex", "Fare"]].copy()
-gender_submission = pd.read_csv("datasets/gender_submission.csv)  ### Файл, содержащий лейблы тестового датасета для дальнейшей оценки эффективности модели
-test_data_labels = gender_submission["Survived"]
+split_train, split_test = train_test_split(train_data, test_size = 0.2
+
+train_data_prepared = split_train[["Pclass", "Sex", "Fare"]].copy()
+train_data_labels = split_train["Survived"].copy()
+
+test_data_prepared = split_test[["Pclass, "Sex", "Fare"]].copy()
+test_data_labels = split_test["Survived"]
 ```
 
 ### Обучение модели и оценка эффективности
@@ -136,18 +139,23 @@ print(model_rmse) ### 0.32
 Теперь можем сгенерировать предсказания для нашего тестового набора данных и затем рассчитать, насколько хорошо наша модель обобщается на новые данные:
 
 ```python
-test_predictions = pd.DataFrame(np.array(model.predict(test_data_prepared)).round().astype("int"))
+test_predictions = np.array(model.predict(test_data_prepared))
 
 test_mse = mean_squared_error(test_data_labels, test_predictions)
 test_rmse = np.sqrt(model_mse)
 
-print(test_rmse)  ### 0.32...
-
-filename = "titanic_predictions.csv"
-
-test_predictions.to_csv(f"datasets/{filename}", index = False)  ### Сохранение прогнозов в отдельный файл.
+print(test_rmse)  ### 0.46
 ```
 
-Посчитав в очередной раз корень из среднеквадратической ошибки получаем, что наша модель довольно хорошо обобщается на новые данные.
+Теперь сделаем итоговые предсказания и сохраним их в файл final_submission.csv:
+```python
+ids = test_data["PassengerId"].copy()   ### ID пассажиров
+final_data_prepared = test_data[["Pclass", "Sex", "Fare"]].copy()
+
+final_predictions = model.predict(final_data_prepared)
+
+file = pd.DataFrame({"PassengerId": ids, "Survived": final_predictions})
+file.to_csv("datasets/final_submission.csv", index = False)
+```
 
 Источник наборов данных - [ссылка](https://www.kaggle.com/competitions/titanic/data)
