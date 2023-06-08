@@ -61,15 +61,12 @@ model = grind_search.best_estimator_
 ###  Тренировка модели на обучающем наборе данных и её оценка
 model.fit(train_data_prepared, train_data_labels)
 
-print(cross_val_score(model, train_data_prepared, train_data_labels, cv = 3))
+print(cross_val_score(model, train_data_prepared, train_data_labels, cv = 3))   ### Оценка на обучающем наборе
 
 test_data_prepared = split_test[["Pclass", "Sex", "Fare"]].copy()
-
-test_predictions = np.array(model.predict(test_data_prepared))          ###  Предикты на тренировочном наборе данных
-
 test_data_labels = split_test["Survived"]
 
-print(cross_val_score(model, test_data_prepared, test_data_labels, cv = 3))
+print(cross_val_score(model, test_data_prepared, test_data_labels, cv = 3))    ### Оценка на тестовом наборе
 
 ids = test_data["PassengerId"].copy()
 final_data_prepared = test_data[["Pclass", "Sex", "Fare"]].copy()
