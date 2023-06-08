@@ -119,33 +119,17 @@ model = grind_search.best_estimator_
 model.fit(train_data_prepared, train_data_labels)
 ```
 
-Теперь заставим модель предсказать значения на обучающем датасете и рассчитаем эффективность модели.
+Теперь оценим эффективность модели на обучающих данных и на тестовых, используя алгоритм перекрестной проверки:
 
 ```python
-from sklearn.metric import mean_squared_error
+from sklearn.model_selection import cross_val_score
 
-predictions = model.predict(train_data_prepared)
-
-model_mse = mean_squared_error(train_data_labels, predictions)
-model_rmse = np_sqrt(model_mse)
-
-print(model_rmse) ### 0.32
+print(cross_val_score(model, train_data_prepared, train_data_labels, cv = 3))   ### [0.83478261 0.74561404 0.83333333]
+print(cross_val_score(model, test_data_prepared, test_data_labels, cv = 3)) ### [0.83478261 0.74561404 0.83333333]
 ```
-
-Корень из среднеквадратической ошибки приблизительно равен 0.32, что является неплохим результатом для такой просто модели.
+Наша модель имеет довольно низкую ошибку и хорошо обобщается на новых данных.
 
 ### Запуск модели и составление прогнозов
-
-Теперь можем сгенерировать предсказания для нашего тестового набора данных и затем рассчитать, насколько хорошо наша модель обобщается на новые данные:
-
-```python
-test_predictions = np.array(model.predict(test_data_prepared))
-
-test_mse = mean_squared_error(test_data_labels, test_predictions)
-test_rmse = np.sqrt(model_mse)
-
-print(test_rmse)  ### 0.46
-```
 
 Теперь сделаем итоговые предсказания и сохраним их в файл final_submission.csv:
 ```python
