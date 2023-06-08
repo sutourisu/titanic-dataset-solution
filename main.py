@@ -6,6 +6,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score
 
 train_data = pd.read_csv("titanic_ds/datasets/train.csv")
 test_data = pd.read_csv("titanic_ds/datasets/test.csv")
@@ -60,13 +61,7 @@ model = grind_search.best_estimator_
 ###  Тренировка модели на обучающем наборе данных и её оценка
 model.fit(train_data_prepared, train_data_labels)
 
-predictions = model.predict(train_data_prepared)
-
-
-model_mse = mean_squared_error(train_data_labels, predictions)
-model_rmse = np.sqrt(model_mse)
-
-print(model_rmse)
+print(cross_val_score(model, train_data_prepared, train_data_labels, cv = 3))
 
 test_data_prepared = split_test[["Pclass", "Sex", "Fare"]].copy()
 
@@ -74,10 +69,7 @@ test_predictions = np.array(model.predict(test_data_prepared))          ###  П�
 
 test_data_labels = split_test["Survived"]
 
-test_mse = mean_squared_error(test_data_labels, test_predictions)   ### Ошибка модели на тестовом наборе данных
-test_rmse = np.sqrt(test_mse)
-
-print(test_rmse)
+print(cross_val_score(model, test_data_prepared, test_data_labels, cv = 3))
 
 ids = test_data["PassengerId"].copy()
 final_data_prepared = test_data[["Pclass", "Sex", "Fare"]].copy()
